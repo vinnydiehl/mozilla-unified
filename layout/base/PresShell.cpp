@@ -8952,13 +8952,14 @@ bool PresShell::EventHandler::PrepareToUseCaretPosition(
   RefPtr<nsCaret> caret = mPresShell->GetCaret();
   NS_ENSURE_TRUE(caret, false);
 
-  bool caretVisible = caret->IsVisible();
-  if (!caretVisible) return false;
-
   // caret selection, this is a temporary weak reference, so no refcounting is
   // needed
   Selection* domSelection = caret->GetSelection();
   NS_ENSURE_TRUE(domSelection, false);
+  bool isSelection = !domSelection->IsCollapsed();
+
+  if (!caret->IsVisible() && !isSelection)
+    return false;
 
   // since the match could be an anonymous textnode inside a
   // <textarea> or text <input>, we need to get the outer frame
@@ -9032,11 +9033,27 @@ bool PresShell::EventHandler::PrepareToUseCaretPosition(
   }
   caretCoords.MoveBy(viewOffset);
 
-  // caret coordinates are in app units, convert to pixels
-  aTargetPt.x =
-      presContext->AppUnitsToDevPixels(caretCoords.x + caretCoords.width);
-  aTargetPt.y =
-      presContext->AppUnitsToDevPixels(caretCoords.y + caretCoords.height);
+  if (isSelection) {
+    nsRange* range = domSelection->GetRangeAt(0);
+    RefPtr<DOMRect> rect = range->GetBoundingClientRect();
+
+    // coordinates are in app units, convert to pixels
+    int32_t eventWidgetX = 0;
+    if (aEventWidget) {
+      LayoutDeviceIntPoint eventWidgetOffset = aEventWidget->WidgetToScreenOffset();
+      nsIntPoint eventWidgetIntOffset(eventWidgetOffset.x, eventWidgetOffset.y);
+      eventWidgetX = eventWidgetIntOffset.x;
+    }
+
+    aTargetPt.x = presContext->AppUnitsToDevPixels(rect->X()) + eventWidgetX;
+    aTargetPt.y =
+        presContext->AppUnitsToDevPixels(caretCoords.y + caretCoords.height);
+  } else {
+    aTargetPt.x =
+        presContext->AppUnitsToDevPixels(caretCoords.x + caretCoords.width);
+    aTargetPt.y =
+        presContext->AppUnitsToDevPixels(caretCoords.y + caretCoords.height);
+  }
 
   // make sure rounding doesn't return a pixel which is outside the caret
   // (e.g. one line lower)

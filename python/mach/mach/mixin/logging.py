@@ -4,6 +4,8 @@
 
 import logging
 
+from mozbuild import shellutil
+
 
 class LoggingMixin(object):
     """Provides functionality to control logging."""
@@ -50,3 +52,27 @@ class LoggingMixin(object):
                 'User login: {username}')
         """
         self._logger.log(level, format_str, extra={"action": action, "params": params})
+
+    def log_process(self, args):
+        """Log an event in which a process is run.
+
+        Creates an INFO-level log of the equivalent command which would run a
+        process. Automatically inserts quotes where necessary.
+
+        For example, an arg might be "--flag=multi word value", and this will
+        format that into "--flag='multi word value'" for the log output.
+
+        Example Usage:
+
+        .. code-block:: python
+
+            self.log_process(["/usr/bin/foo", "--bar", "foo bar"])
+
+        This would output the string "/usr/bin/foo --bar 'foo bar'".
+        """
+        args = [
+            "=".join([shellutil.quote(s) if " " in s else s for s in arg.split("=")])
+            for arg in args
+        ]
+
+        self.log(logging.INFO, "new_process", {"args": " ".join(args)}, "{args}")

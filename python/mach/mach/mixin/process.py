@@ -107,7 +107,7 @@ class ProcessExecutionMixin(LoggingMixin):
         """
         args = self._normalize_command(args, require_unix_environment)
 
-        self.log(logging.INFO, "new_process", {"args": " ".join(args)}, "{args}")
+        self.log_process(args)
 
         def handleLine(line):
             # Converts str to unicode on Python 2 and bytes to str on Python 3.

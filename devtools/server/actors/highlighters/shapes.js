@@ -565,7 +565,7 @@ class ShapesHighlighter extends AutoRefreshHighlighter {
           this._handleCircleClick(pageX, pageY);
         } else if (this.shapeType === "ellipse") {
           this._handleEllipseClick(pageX, pageY);
-        } else if (this.shapeType === "inset") {
+        } else if (this.shapeType === "inset" || this.shapeType == "xywh") {
           this._handleInsetClick(pageX, pageY);
         }
         event.stopPropagation();
@@ -603,7 +603,7 @@ class ShapesHighlighter extends AutoRefreshHighlighter {
           this._handleCircleMove(point, pageX, pageY);
         } else if (this.shapeType === "ellipse") {
           this._handleEllipseMove(point, pageX, pageY);
-        } else if (this.shapeType === "inset") {
+        } else if (this.shapeType === "inset" || this.shapeType == "xywh") {
           this._handleInsetMove(point, pageX, pageY);
         }
         break;
@@ -646,7 +646,7 @@ class ShapesHighlighter extends AutoRefreshHighlighter {
       this._handleCircleTransformClick(pageX, pageY, type);
     } else if (this.shapeType === "ellipse") {
       this._handleEllipseTransformClick(pageX, pageY, type);
-    } else if (this.shapeType === "inset") {
+    } else if (this.shapeType === "inset" || this.shapeType == "xywh") {
       this._handleInsetTransformClick(pageX, pageY, type);
     }
   }
@@ -844,7 +844,7 @@ class ShapesHighlighter extends AutoRefreshHighlighter {
       this._transformCircle();
     } else if (this.shapeType === "ellipse") {
       this._transformEllipse();
-    } else if (this.shapeType === "inset") {
+    } else if (this.shapeType === "inset" || this.shapeType == "xywh") {
       this._transformInset();
     }
   }
@@ -940,7 +940,7 @@ class ShapesHighlighter extends AutoRefreshHighlighter {
       this._transformCircle(transX);
     } else if (this.shapeType === "ellipse") {
       this._transformEllipse(transX, transY);
-    } else if (this.shapeType === "inset") {
+    } else if (this.shapeType === "inset" || this.shapeType == "xywh") {
       this._transformInset();
     }
   }
@@ -1554,7 +1554,7 @@ class ShapesHighlighter extends AutoRefreshHighlighter {
         this._emitHoverEvent(this.hoveredPoint);
       }
       this._handleMarkerHover(point);
-    } else if (this.shapeType === "inset") {
+    } else if (this.shapeType === "inset" || this.shapeType === "xywh") {
       const point = this.getInsetPointAt(percentX, percentY);
       const oldHoveredPoint = this.hoveredPoint;
       this.hoveredPoint = point ? point : null;
@@ -1656,7 +1656,7 @@ class ShapesHighlighter extends AutoRefreshHighlighter {
         const { cx, cy, ry } = this.coordinates;
         this._drawHoverMarker([[cx, cy + ry]]);
       }
-    } else if (this.shapeType === "inset") {
+    } else if (this.shapeType === "inset" || this.shapeType === "xywh") {
       this.setCursor(hoverCursor);
 
       const { top, right, bottom, left } = this.coordinates;
@@ -2044,6 +2044,11 @@ class ShapesHighlighter extends AutoRefreshHighlighter {
         prefix: "inset(",
         coordParser: this.insetPoints.bind(this),
       },
+      {
+        name: "xywh",
+        prefix: "xywh(",
+        coordParser: this.xywhPoints.bind(this),
+      },
     ];
     const geometryTypes = ["margin", "border", "padding", "content"];
     // default to border for clip-path and offset-path, and margin for shape-outside
@@ -2412,6 +2417,61 @@ class ShapesHighlighter extends AutoRefreshHighlighter {
     return { top, left, right, bottom };
   }
 
+  /**
+   * Parses the definition of the CSS xywh() function and returns the x/y offsets and
+   * width/height of the shape, converted to percentages. Border radiuses (given after
+   * "round" in the definition) are currently ignored.
+   * @param {String} definition the arguments of the xywh() function
+   * @returns {Object} an object of the form { x, y, width, height }, which are the top/
+   *          left positions and width/height of the shape.
+   */
+  xywhPoints(definition) {
+    this.coordUnits = this.xywhRawPoints();
+    if (!this.origCoordUnits) {
+      this.origCoordUnits = this.coordUnits;
+    }
+    const values = definition.split(" round ");
+    const [x, y, w, h] = splitCoords(values[0]).map(
+      this.convertCoordsToPercent.bind(this)
+    );
+
+    // maxX/maxY are found by subtracting the right/bottom edges from 100
+    // (the width/height of the element in %)
+    this.boundingBox = {
+      minX: x,
+      maxX: x + w,
+      minY: y,
+      maxY: y + h,
+    };
+    if (!this.origBoundingBox) {
+      this.origBoundingBox = this.boundingBox;
+    }
+    return { x, y, w, h };
+  }
+
+  /**
+   * Parse the raw (non-computed) definition of the CSS xywh.
+   * @returns {Object} an object of the points of the rectangle
+   *          (top, right, bottom, left), with units preserved.
+   */
+  xywhRawPoints() {
+    let definition = getDefinedShapeProperties(this.currentNode, this.property);
+    if (definition === this.rawDefinition && this.coordUnits) {
+      return this.coordUnits;
+    }
+    this.rawDefinition = definition;
+    definition = definition.substring(6, definition.lastIndexOf(")"));
+
+    const values = definition.split(" round ");
+    this.xywhRound = values[1];
+    const [x, y, w, h] = splitCoords(values[0]).map(coord => {
+      // Undo the insertion of &nbsp; that was done in splitCoords.
+      return coord.replace(/\u00a0/g, " ");
+    });
+
+    return { x, y, w, h };
+  }
+
   convertCoordsToPercent(coord, i) {
     const { width, height } = this.currentDimensions;
     const size = i % 2 === 0 ? width : height;
@@ -2649,7 +2709,7 @@ class ShapesHighlighter extends AutoRefreshHighlighter {
         height,
         zoom
       );
-    } else if (this.shapeType === "inset") {
+    } else if (this.shapeType === "inset" || this.shapeType === "xywh") {
       const { top, left, right, bottom } = this.coordinates;
       const centerX = (left + (100 - right)) / 2;
       const centerY = (top + (100 - bottom)) / 2;
@@ -2694,7 +2754,7 @@ class ShapesHighlighter extends AutoRefreshHighlighter {
     } else if (this.shapeType === "circle" || this.shapeType === "ellipse") {
       // Shape renders for "circle()" and "ellipse()" use the same SVG nodes.
       this._updateEllipseShape(width, height, zoom);
-    } else if (this.shapeType === "inset") {
+    } else if (this.shapeType === "inset" || this.shapeType === "xywh") {
       this._updateInsetShape(width, height, zoom);
     }
 

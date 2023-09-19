@@ -60,7 +60,7 @@ const COLOR_TAKING_FUNCTIONS = [
   "color-mix",
 ];
 // Functions that accept a shape argument.
-const BASIC_SHAPE_FUNCTIONS = ["polygon", "circle", "ellipse", "inset"];
+const BASIC_SHAPE_FUNCTIONS = ["polygon", "circle", "ellipse", "inset", "xywh"];
 
 const BACKDROP_FILTER_ENABLED = Services.prefs.getBoolPref(
   "layout.css.backdrop-filter.enabled"
@@ -793,6 +793,10 @@ class OutputParser {
       },
       {
         prefix: "inset(",
+        coordParser: this.#addInsetPointNodes.bind(this),
+      },
+      {
+        prefix: "xywh(",
         coordParser: this.#addInsetPointNodes.bind(this),
       },
     ];

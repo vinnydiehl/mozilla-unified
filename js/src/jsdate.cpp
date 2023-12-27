@@ -3971,3 +3971,9 @@ JS_PUBLIC_API bool js::DateGetMsecSinceEpoch(JSContext* cx, HandleObject obj,
   *msecsSinceEpoch = unboxed.toNumber();
   return true;
 }
+
+JS_PUBLIC_API bool JS::IsISOStyleDate(JSContext* cx, JS::Latin1Chars str) {
+  ClippedTime result;
+  return ParseISOStyleDate(ForceUTC(cx->realm()), str.begin().get(),
+                           str.length(), &result);
+}

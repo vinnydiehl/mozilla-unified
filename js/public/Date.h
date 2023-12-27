@@ -32,6 +32,7 @@
 #include "mozilla/FloatingPoint.h"  // mozilla::{IsFinite,}, mozilla::UnspecifiedNaN
 #include "mozilla/MathAlgorithms.h"  // mozilla::Abs
 
+#include "js/CharacterEncoding.h"
 #include "js/Conversions.h"   // JS::ToInteger
 #include "js/RealmOptions.h"  // JS::RTPCallerTypeToken
 #include "js/TypeDecls.h"
@@ -212,6 +213,9 @@ GetReduceMicrosecondTimePrecisionCallback();
 // should occur. If resolution is set to zero, then no rounding or jitter will
 // occur. This is used if the callback above is not specified.
 JS_PUBLIC_API void SetTimeResolutionUsec(uint32_t resolution, bool jitter);
+
+// Returns whether a given string follows the Date Time String Format.
+JS_PUBLIC_API bool IsISOStyleDate(JSContext* cx, JS::Latin1Chars str);
 
 }  // namespace JS
 
